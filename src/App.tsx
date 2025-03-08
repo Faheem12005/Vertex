@@ -1,0 +1,34 @@
+import "./App.css";
+import Login from "./components/Login";
+import { createContext, useState } from "react";
+import Dashboard from "./components/Dashboard";
+
+type AuthContextType = {
+  loggedIn: boolean;
+  setLoggedIn: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+export const AuthContext = createContext<AuthContextType>({
+  loggedIn: false,
+  setLoggedIn: () => {},
+});
+
+function App() {
+  const [loggedIn, setLoggedIn] = useState<boolean>(false);
+
+  return (
+    <AuthContext.Provider value={{ loggedIn, setLoggedIn }}>
+      { loggedIn ? 
+      <>
+      <Dashboard/>
+      </> 
+      : 
+      <>
+      <Login/>
+      </>
+      }
+    </AuthContext.Provider>
+  );
+}
+
+export default App;
