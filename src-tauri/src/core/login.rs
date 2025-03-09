@@ -1,5 +1,7 @@
 use serde::{ Deserialize, Serialize};
 use scraper::{Html, Selector};
+use crate::core::types;
+use tauri::{AppHandle, Manager};
 
 #[derive(Debug)]
 #[derive(Serialize, Deserialize)]
@@ -10,11 +12,8 @@ struct Login {
 }
 
 #[tauri::command]
-    pub fn login(payload: &str) -> Result<String, String> {
-        let client = reqwest::blocking::Client::builder()
-        .cookie_store(true)
-        .build()
-        .unwrap();
+    pub fn login(app: AppHandle, payload: &str) -> Result<String, String> {
+        let client = &app.state::<types::Client>().inner().client;
         let response: serde_json::Value = serde_json::from_str(payload).expect("expected a valid JSON object!");
         let logintoken = if let Some(value) = logintoken(&client) {
             value
@@ -102,22 +101,5 @@ mod tests {
         };
         let response = login_lms(&client, &login_info).unwrap().text().unwrap();
         assert!(response.contains(&username));
-    }
-
-    #[test]
-    fn login_test_success() {
-        let username: String = env::var("USERNAME").unwrap();
-        let password: String = env::var("PASSWORD").unwrap();
-
-        let payload = format!(r#"{{ "username": "{}", "password": "{}" }}"#, username, password);
-        assert!(login(&payload).unwrap().contains(&username)) 
-    }
-
-    #[test]
-    fn login_test_fail() {
-
-
-        let payload = format!(r#"{{ "username": "wrong", "password": "wrong" }}"#);
-        assert!(login(&payload).is_err()) 
     }
 }
