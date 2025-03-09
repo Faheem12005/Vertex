@@ -1,6 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod core;
-use core::{login,types};
+use core::{login,types,cmds};
 use tauri::Manager;
 
 
@@ -16,7 +16,10 @@ pub fn run() {
             Ok(())
     })
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![login::login])
+        .invoke_handler(tauri::generate_handler![
+            login::login,
+            cmds::fetch_assignments,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

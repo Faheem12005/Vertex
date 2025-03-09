@@ -1,6 +1,6 @@
 use serde::{ Deserialize, Serialize};
 use scraper::{Html, Selector};
-use crate::core::types;
+use crate::core::{types,cmds};
 use tauri::{AppHandle, Manager};
 
 #[derive(Debug)]
@@ -12,35 +12,35 @@ struct Login {
 }
 
 #[tauri::command]
-    pub fn login(app: AppHandle, payload: &str) -> Result<String, String> {
-        let client = &app.state::<types::Client>().inner().client;
-        let response: serde_json::Value = serde_json::from_str(payload).expect("expected a valid JSON object!");
-        let logintoken = if let Some(value) = logintoken(&client) {
-            value
-        } else {
-            return Err(String::from("failed to fetch token"));
-        };
-        let login_info = Login {
-            username: response["username"].as_str().unwrap().to_string(),
-            password: response["password"].as_str().unwrap().to_string(),
-            logintoken,
-        };
-        match login_lms(&client, &login_info) {
-            Err(_) => Err("failed to login".to_string()),
-            Ok(response) => {
-                let response_string = response.text().unwrap();
-                if response_string.contains("You are not logged in") {
-                    Err("Login credentials invalid.".to_string())
-                } else{
-                    let document = Html::parse_document(&response_string);
-                    let selector = Selector::parse(".logininfo a").unwrap();
-                    let tag = document.select(&selector).next().unwrap();
-                    let userinfo = tag.text().collect::<Vec<_>>().join(" ");
-                    Ok(userinfo)
-                }
+pub fn login(app: AppHandle, payload: &str) -> Result<String, String> {
+    let client = &app.state::<types::Client>().inner().client;
+    let response: serde_json::Value = serde_json::from_str(payload).expect("expected a valid JSON object!");
+    let logintoken = if let Some(value) = logintoken(&client) {
+        value
+    } else {
+        return Err(String::from("failed to fetch token"));
+    };
+    let login_info = Login {
+        username: response["username"].as_str().unwrap().to_string(),
+        password: response["password"].as_str().unwrap().to_string(),
+        logintoken,
+    };
+    match login_lms(&client, &login_info) {
+        Err(_) => Err("failed to login".to_string()),
+        Ok(response) => {
+            let response_string = response.text().unwrap();
+            if response_string.contains("You are not logged in") {
+                Err("Login credentials invalid.".to_string())
+            } else{
+                let document = Html::parse_document(&response_string);
+                let selector = Selector::parse(".logininfo a").unwrap();
+                let tag = document.select(&selector).next().unwrap();
+                let userinfo = tag.text().collect::<Vec<_>>().join(" ");
+                Ok(userinfo)
             }
         }
     }
+}
 
 fn login_lms(client: &reqwest::blocking::Client, login_info: &Login) -> Result<reqwest::blocking::Response, reqwest::Error> {
     let response = client.post("https://lms.vit.ac.in/login/index.php").form(&login_info).send();
@@ -101,5 +101,8 @@ mod tests {
         };
         let response = login_lms(&client, &login_info).unwrap().text().unwrap();
         assert!(response.contains(&username));
+
+        let sesskey = cmds::fetch_sesskey(&client);
+        assert!(!sesskey.is_some());
     }
 }
