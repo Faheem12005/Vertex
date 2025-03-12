@@ -1,6 +1,7 @@
 use scraper::{Html,Selector};
 use tauri::{AppHandle, Manager};
 use crate::core::types;
+use tauri_plugin_http::reqwest;
 
 #[tauri::command]
 pub fn fetch_assignments(app: AppHandle) -> Result<String, String> {
@@ -21,7 +22,7 @@ pub fn fetch_assignments(app: AppHandle) -> Result<String, String> {
         ]"#;
 
     let request_json: serde_json::Value = serde_json::from_str(request_body)
-    .map_err(|_| "Failed to parse JSON".to_string())?;
+    .map_err(|_| "Failed to parse JSON request".to_string())?;
 
     let response = client.post(url)
         .json(&request_json)
