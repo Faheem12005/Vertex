@@ -10,7 +10,7 @@ export default function Login () {
 
   const handleSubmit = async() => {
     try {
-      let response: string = await invoke('login', { payload: JSON.stringify({ username: username, password: password }) });
+      let response: string = await invoke('login_lms', { payload: JSON.stringify({ username: username, password: password }) });
       console.log(response);
       localStorage.setItem("username", response);
       setLoggedIn(true);
