@@ -1,6 +1,6 @@
 import "./App.css";
 import Login from "./components/Login";
-import { createContext, useState } from "react";
+import React, { createContext, useState } from "react";
 import Dashboard from "./components/Dashboard";
 
 type AuthContextType = {

@@ -1,11 +1,11 @@
 use std::time::Duration;
-use crate::core::types::ClientState;
+use crate::core::login::ClientState;
 use tokio::time::sleep;
 impl ClientState {
     pub async fn refresh_session(&self) {
         loop {
 
-            sleep(Duration::from_secs(5)).await;
+            sleep(Duration::from_secs(120)).await;
             let sesskey = match self.fetch_sesskey().await {
                 Some(s) => s,
                 None => {

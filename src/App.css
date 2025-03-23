@@ -1,1 +1,66 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 @import "tailwindcss";
+@theme {
+
+    --font-primary: 'Poppins', sans-serif;
+
+    --color-text-50: oklch(95.13% 0.014 299.80);
+    --color-text-100: oklch(90.17% 0.029 296.72);
+    --color-text-200: oklch(80.39% 0.057 296.56);
+    --color-text-300: oklch(70.20% 0.089 295.29);
+    --color-text-400: oklch(59.99% 0.123 294.16);
+    --color-text-500: oklch(49.94% 0.155 291.00);
+    --color-text-600: oklch(42.67% 0.130 291.73);
+    --color-text-700: oklch(35.17% 0.102 291.60);
+    --color-text-800: oklch(27.36% 0.072 292.51);
+    --color-text-900: oklch(18.71% 0.042 292.85);
+    --color-text-950: oklch(14.30% 0.022 293.09);
+
+    --color-background-50: oklch(95.13% 0.014 299.80);
+    --color-background-100: oklch(90.17% 0.029 296.72);
+    --color-background-200: oklch(80.39% 0.057 296.56);
+    --color-background-300: oklch(70.20% 0.089 295.29);
+    --color-background-400: oklch(59.99% 0.123 294.16);
+    --color-background-500: oklch(49.94% 0.155 291.00);
+    --color-background-600: oklch(42.67% 0.130 291.73);
+    --color-background-700: oklch(35.17% 0.102 291.60);
+    --color-background-800: oklch(27.36% 0.072 292.51);
+    --color-background-900: oklch(18.71% 0.042 292.85);
+    --color-background-950: oklch(14.30% 0.022 293.09);
+
+    --color-primary-50: oklch(95.32% 0.012 296.35);
+    --color-primary-100: oklch(90.33% 0.026 295.52);
+    --color-primary-200: oklch(80.71% 0.051 295.42);
+    --color-primary-300: oklch(70.66% 0.080 294.26);
+    --color-primary-400: oklch(60.45% 0.111 292.70);
+    --color-primary-500: oklch(50.31% 0.140 290.06);
+    --color-primary-600: oklch(43.02% 0.118 290.51);
+    --color-primary-700: oklch(35.54% 0.093 290.97);
+    --color-primary-800: oklch(27.65% 0.065 291.81);
+    --color-primary-900: oklch(18.88% 0.038 292.03);
+    --color-primary-950: oklch(14.23% 0.020 294.47);
+
+    --color-secondary-50: oklch(97.84% 0.023 93.32);
+    --color-secondary-100: oklch(95.95% 0.045 94.84);
+    --color-secondary-200: oklch(92.09% 0.088 95.07);
+    --color-secondary-300: oklch(88.31% 0.126 93.80);
+    --color-secondary-400: oklch(84.89% 0.153 92.82);
+    --color-secondary-500: oklch(81.71% 0.164 90.20);
+    --color-secondary-600: oklch(69.21% 0.139 90.22);
+    --color-secondary-700: oklch(56.11% 0.112 90.24);
+    --color-secondary-800: oklch(42.32% 0.083 92.28);
+    --color-secondary-900: oklch(27.13% 0.051 93.89);
+    --color-secondary-950: oklch(18.78% 0.034 95.11);
+
+    --color-accent-50: oklch(96.91% 0.013 134.90);
+    --color-accent-100: oklch(93.80% 0.028 133.73);
+    --color-accent-200: oklch(87.32% 0.055 135.15);
+    --color-accent-300: oklch(81.11% 0.084 135.01);
+    --color-accent-400: oklch(74.94% 0.113 135.20);
+    --color-accent-500: oklch(68.62% 0.138 135.72);
+    --color-accent-600: oklch(58.47% 0.117 135.71);
+    --color-accent-700: oklch(47.59% 0.092 135.80);
+    --color-accent-800: oklch(36.06% 0.066 136.01);
+    --color-accent-900: oklch(23.88% 0.038 134.77);
+    --color-accent-950: oklch(16.79% 0.021 135.22);
+}

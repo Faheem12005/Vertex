@@ -25,7 +25,7 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    async fn get_logintoken(&self) -> Option<String> {
+    pub async fn get_logintoken(&self) -> Option<String> {
         let body = &self.client.get("https://lms.vit.ac.in/login/index.php")
             .send().await.unwrap_or_else(|_| panic!("failed to get lms token"))
             .text().await
@@ -75,6 +75,42 @@ impl ClientState {
             }
         }
     }
+    pub async fn fetch_sesskey(&self) -> Option<String> {
+        let body = self.client.get("https://lms.vit.ac.in/my/")
+            .send().await
+            .unwrap()
+            .text().await
+            .unwrap();
+        let document = Html::parse_document(&body);
+        let selector = Selector::parse(r#"input[name="sesskey"]"#).unwrap();
+        let element = match document.select(&selector).next() {
+            Some(e) => e,
+            None => return None,
+        };
+        match element.value().attr("value") {
+            Some(value) => Some(value.to_string()),
+            None => {
+                eprintln!("failed to fetch session key!");
+                None
+            }
+        }
+    }
+    pub async fn logout_lms(&self) -> Result<String, String> {
+        let sesskey = match self.fetch_sesskey().await {
+            Some(s) => s,
+            None => return Err(String::from("failed to fetch session key!")),
+        };
+        let url = format!("https://lms.vit.ac.in/login/logout.php?sesskey={}",sesskey);
+        let response = match self.client.get(url)
+            .send().await {
+            Ok(r) => r,
+            Err(_) => return Err(String::from("failed to fetch from logout url!")),
+        };
+        if response.text().await.unwrap().contains("You are not logged in.") {
+            return Ok("successfully logged out".to_string())
+        };
+        Err(String::from("failed to logout due to unexpected reasons"))
+    }
 }
 
 
@@ -109,7 +145,6 @@ mod tests {
             .build()
             .unwrap();
         let client = ClientState { client: Arc::new(client) };
-        let logintoken = client.get_logintoken().await.unwrap();
 
         let payload = json!({
             "username": username,
@@ -121,5 +156,9 @@ mod tests {
 
         let sesskey = client.fetch_sesskey().await;
         assert!(sesskey.is_some());
+
+        let logoutmsg = client.logout_lms().await.unwrap();
+        assert!(logoutmsg.contains("successfully logged out"));
+
     }
 }

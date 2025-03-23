@@ -1,7 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
+import Navbar from "./Navbar.tsx";
+import DashboardSection from "./DashboardSection.tsx";
+import Description from "./Description.tsx";
 
-interface Assignments {
+export interface Assignments {
   name: string,
   description: string,
   instanceId: string,
@@ -22,33 +25,31 @@ const fetchAssignments = async () => {
     }));
   } catch (error) {
     console.error("Failed to fetch assignments:", error);
-    return null;
+    return [];
   }
 };
 
-const renderAssignment = (assignment: Assignments) => {
-  return (
-    <div key={assignment.instanceId} className="p-4 border rounded shadow-md">
-      <h2 className="text-xl font-bold">{assignment.name}</h2>
-      <p>{assignment.description}</p>
-      <p><strong>Course:</strong> {assignment.courseName}</p>
-      <p><strong>Due Date:</strong> {assignment.dueDate}</p>
-    </div>
-  );
-};
-
-
 export default function Dashboard() {
-  const [assignments, setAssignments] = useState<null | Assignments[]>(null);
-
+  const [assignments, setAssignments] = useState<Assignments[]>([]);
+  const [description, setDescription] = useState();
   useEffect(() => {
     fetchAssignments().then(setAssignments);
   }, []);
 
+  // @ts-ignore
   return (
-    <div className="h-screen w-screen flex justify-center flex-col gap-8 items-center bg-white">
-      <p>Welcome! {localStorage.getItem("username")}</p>
-      <div>{assignments?.map(renderAssignment)}</div>
-    </div>
+        <div className="flex flex-col min-h-screen">
+          <Navbar/>
+          <div className="grid grid-cols-3 flex-grow p-4 gap-5">
+            <DashboardSection
+                heading="LMS"
+                cards={assignments}
+                setDescription={setDescription}
+            />
+            <Description
+                description={description}
+            />
+          </div>
+        </div>
   );
 }
