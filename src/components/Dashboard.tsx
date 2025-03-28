@@ -16,6 +16,7 @@ const fetchAssignments = async () => {
   try {
     let response = JSON.parse(await invoke("fetch_assignments"));
     console.log(response)
+    localStorage.setItem("assignments", JSON.stringify(response));
     return response[0].data.events.map((event: any) => ({
       name: event.name,
       description: event.description,

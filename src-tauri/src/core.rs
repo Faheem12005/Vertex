@@ -1,4 +1,4 @@
-pub mod login;
-pub mod cmds;
-pub mod background;
 mod assignments_lms;
+pub mod cmds;
+pub(crate) mod errors;
+pub mod login;

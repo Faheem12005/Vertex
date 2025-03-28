@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import ClockRegular from "../assets/icons/ClockRegular.svg"
+import ClockRegular from "../../public/icons/ClockRegular.svg"
 export default function Card({heading, duedate, id, setDescription }: {heading: string, duedate: string, id: string, setDescription: Function}) {
 
     function formatDueDate(rawDueDate: string): string {
@@ -66,11 +66,16 @@ export default function Card({heading, duedate, id, setDescription }: {heading: 
 
     function handleOpenAssignment(id: string) {
         return async () => {
-            let assignmentDetails = JSON.parse(await invoke("open_assignment_lms", { id }));
-            console.log(assignmentDetails);
-            setDescription(assignmentDetails);
-        }
+            let assignmentDetails: JSON = await invoke("open_assignment_lms", { id });
+            let assignments = localStorage.getItem("assignments");
+            if (!assignments) return;
+            assignments = JSON.parse(assignments);
+            // @ts-ignore
+            let filteredAssignments = assignments[0]?.data?.events?.filter((event: any) => event.instance.toString() === id) || [];
+            setDescription({ description: filteredAssignments[0].description.replace(/<[^>]+>/g, ' '), title: filteredAssignments[0].name, ...assignmentDetails });
+        };
     }
+
 
     return (
         <div className="flex items-center justify-center bg-secondary-500 h-20 rounded-3xl p-4 mt-5 flex-col font-primary hover:bg-secondary-600 hover:cursor-pointer" onClick={handleOpenAssignment(id.toString())}>
