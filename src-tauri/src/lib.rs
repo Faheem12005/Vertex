@@ -16,9 +16,13 @@ use tauri_plugin_http::reqwest;
 use tauri_plugin_notification::NotificationExt;
 use tokio::time::{sleep, Duration};
 use tauri_plugin_store::StoreExt;
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::TrayIconBuilder,
+};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 
-async fn check_lms(app: AppHandle) -> Result<(), Error> {
+async fn check_lms_assignment(app: &AppHandle) -> Result<(), Error> {
     let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
     println!("retrieved store...");
     let username = store.get("username").ok_or(Error::StoreError)?;
@@ -66,7 +70,7 @@ async fn check_lms(app: AppHandle) -> Result<(), Error> {
                     println!("This event is in {} hours!", hours_diff);
                 }
                 let assignment_name = event.get("name").unwrap().as_str().unwrap();
-                let line = format!("assignment {} is due in {} hours.", assignment_name, hours_diff);
+                let line = format!("assignment {} in {} hours.", assignment_name, hours_diff);
                 //fetching course name and title for notification
                 let course_name = event.get("course")
                     .unwrap().as_object()
@@ -104,12 +108,45 @@ pub fn run() {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 loop {
-                    sleep(Duration::from_secs(3000)).await;
-                    check_lms(handle.clone()).await.unwrap_or_else(|error| {
+                    sleep(Duration::from_secs(60)).await;
+                    check_lms_assignment(&handle).await.unwrap_or_else(|error| {
                         println!("Error checking LMS: {}, retrying...", error);
                     });
                 }
             });
+
+            //setting up system tray
+            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let check_lms = MenuItem::with_id(app, "check_lms", "Check LMS", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&quit, &check_lms])?;
+
+            let tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+
+                //defining event handlers for tray
+                .on_menu_event(move |handle, event| match event.id.as_ref() {
+                    "quit" => {
+                        println!("quit menu item was clicked");
+                        handle.cleanup_before_exit();
+                        handle.exit(0);
+                    }
+                    "check_lms" => {
+                        println!("check_lms menu item was clicked");
+                        let app_handle = handle.clone();
+                        tauri::async_runtime::spawn(async move {
+                            check_lms_assignment(&app_handle).await.unwrap_or_else(|error| {
+                                println!("Error checking LMS from tray event: {}", error);
+                            });
+                        });
+                    }
+                    _ => {
+                        println!("menu item {:?} not handled", event.id);
+                    }
+                })
+                .build(app)?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

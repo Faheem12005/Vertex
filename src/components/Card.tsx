@@ -1,5 +1,4 @@
 import { invoke } from "@tauri-apps/api/core";
-import ClockRegular from "../../public/icons/ClockRegular.svg"
 export default function Card({heading, duedate, id, setDescription }: {heading: string, duedate: string, id: string, setDescription: Function}) {
 
     function formatDueDate(rawDueDate: string): string {
@@ -81,7 +80,7 @@ export default function Card({heading, duedate, id, setDescription }: {heading: 
         <div className="flex items-center justify-center bg-secondary-500 h-20 rounded-3xl p-4 mt-5 flex-col font-primary hover:bg-secondary-600 hover:cursor-pointer" onClick={handleOpenAssignment(id.toString())}>
             <p className="font-bold">{extractCourseCode(heading)}</p>
             <div className="flex items-center gap-2">
-                <img className="h-5 object-contain " src={ClockRegular} alt="Clock regular" />
+                <img className="h-5 object-contain " src="/icons/ClockRegular.svg" alt="Clock regular" />
                 <p className="text-xs ">{displayDueDate(formatDueDate(duedate))}</p>
             </div>
         </div>

@@ -14,16 +14,6 @@ use keyring::Error::NoEntry;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-
-impl serde::Serialize for Error {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.serialize_str(self.to_string().as_ref())
-    }
-}
-
 pub struct ClientState {
     pub client: Arc<reqwest::Client>,
 }

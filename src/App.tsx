@@ -2,6 +2,7 @@ import "./App.css";
 import Login from "./components/Login";
 import React, { createContext, useState } from "react";
 import Dashboard from "./components/Dashboard";
+import { Toaster } from "react-hot-toast";
 
 type AuthContextType = {
   loggedIn: boolean;
@@ -18,6 +19,7 @@ function App() {
 
   return (
     <AuthContext.Provider value={{ loggedIn, setLoggedIn }}>
+      <Toaster />
       { loggedIn ? 
       <>
       <Dashboard/>

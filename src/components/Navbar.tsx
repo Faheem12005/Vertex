@@ -1,19 +1,21 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useContext } from "react";
 import { AuthContext } from "../App";
+import toast from "react-hot-toast";
 export default function Navbar () {
     const {setLoggedIn} = useContext(AuthContext);
 
     const handleLogout = async () => {
         try {
             console.log("Logging out...");
-            const result = await invoke("logout_lms");
-            console.log("Rust function returned:", result);
-
+            await invoke("logout_lms");
             localStorage.removeItem("username");
             setLoggedIn(false);
         } catch (error) {
-            console.error("Failed to logout:", error);
+            toast.error("Error logging out", {
+                position: "bottom-right",
+                duration: 2000,
+            });
         }
     };
 
