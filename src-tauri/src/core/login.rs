@@ -10,19 +10,61 @@ use tauri_plugin_http::reqwest;
 use serde_json::json;
 use tauri_plugin_store::StoreExt;
 use keyring::Error::NoEntry;
-
-use tokio::fs::File;
+use tauri::ipc::IpcResponse;
 use tokio::io::AsyncWriteExt;
-
+use crate::core::types::{Service, LoginPayload};
 pub struct ClientState {
     pub client: Arc<reqwest::Client>,
 }
 
+pub fn store_credentials(login_info: LoginPayload, service: &Service, app: &AppHandle) -> Result<(), Error> {
+    let username = login_info.username.as_str();
+    let password = login_info.password.as_str();
+    let entry = Entry::new("Vertex", username).map_err(|_| Error::CredentialsError("Failed to create keyring entry".to_string()))?;
+
+    if entry.get_password().is_err() {
+        entry.set_password(password).map_err(|_| Error::CredentialsError("Failed to set keyring entry password".to_string()))?;
+    }
+    let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
+    store.set("username", username.to_string());
+    let _value = store.get("username").expect("Failed to get value from store");
+
+    Ok(())
+}
+
+pub fn delete_credentials(app: &AppHandle) -> Result<(), Error> {
+    let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
+    let username = store.get("username").ok_or_else(|| Error::StoreError)?.as_str().unwrap().to_string();
+    let entry = Entry::new("Vertex", &username).unwrap();
+    if let Err(e) = entry.delete_credential() {
+        if !matches!(e, NoEntry) {
+            return Err(Error::CredentialsError("credentials are not present to be deleted".to_string()));
+        }
+    }
+    store.close_resource();
+    Ok(())
+}
+
+pub fn get_credentials(app: &AppHandle, service: &Service) -> Result<LoginPayload, Error> {
+    match service {
+        Service::LMS => {
+            let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
+            let username = store.get("username").ok_or_else(|| Error::StoreError)?.as_str().unwrap().to_string();
+            let entry = Entry::new("Vertex", &username).unwrap();
+            let password = entry.get_password().map_err(|_| Error::CredentialsError("password not found in credential manager".to_string()))?;
+            Ok(LoginPayload::new(username, password))
+        }
+        Service::Vitol => {
+            Err(Error::InvalidFormat("not implemented yet".to_string()))
+        }
+    }
+
+}
 impl ClientState {
-    pub async fn get_logintoken(&self) -> Result<String, Error> {
+    pub async fn get_logintoken(&self, service: &Service) -> Result<String, Error> {
         let body = &self
             .client
-            .get("https://lms.vit.ac.in/login/index.php")
+            .get(format!("{}/login/index.php", service.base_url()))
             .send()
             .await?
             .text()
@@ -44,23 +86,17 @@ impl ClientState {
             )),
         }
     }
-    pub async fn login_lms(&self, payload: &str, app: AppHandle) -> Result<String, Error> {
-        let response: serde_json::Value = serde_json::from_str(payload)?;
-        let logintoken = match self.get_logintoken().await {
+    pub async fn login_moodle(&self, login_info: LoginPayload, app: AppHandle, service: &Service) -> Result<String, Error> {
+        let logintoken = match self.get_logintoken(service).await {
             Ok(logintoken) => logintoken,
             Err(Error::InvalidRequestError(_)) => return Ok("user is already logged in".to_string()),
             Err(e) => return Err(e),
         };
-        let username = response["username"].as_str().unwrap().to_string().clone();
-        let password = response["password"].as_str().unwrap().to_string().clone();
-        let mut login_info = HashMap::new();
-        login_info.insert("username".to_string(), username.clone());
-        login_info.insert("password".to_string(), password.clone());
-        login_info.insert("logintoken".to_string(), logintoken);
+        let login_details: HashMap<String, String> = login_info.add_token(logintoken);
         let response = self
             .client
-            .post("https://lms.vit.ac.in/login/index.php")
-            .form(&login_info)
+            .post(format!("{}/login/index.php", service.base_url()))
+            .form(&login_details)
             .send()
             .await?;
         let response_string = response.text().await?;
@@ -72,24 +108,14 @@ impl ClientState {
             let selector = Selector::parse(".logininfo a").unwrap();
             let tag = document.select(&selector).next().unwrap();
             let userinfo = tag.text().collect::<Vec<_>>().join(" ");
-            let entry = Entry::new("Vertex", &username).unwrap();
-            match entry.get_password() {
-                Ok(_) => {}
-                Err(_) => {
-                    entry.set_password(&password).unwrap();
-                }
-            }
-            let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
-            store.set("username", username.to_string());
-            let value = store.get("username").expect("Failed to get value from store");
-            println!("{}", value);
+            store_credentials(login_info, service, &app)?;
             Ok(userinfo)
         }
     }
-    pub async fn fetch_sesskey(&self) -> Result<String, Error> {
+    pub async fn fetch_sesskey(&self, service: &Service) -> Result<String, Error> {
         let body = self
             .client
-            .get("https://lms.vit.ac.in/my/")
+            .get(format!("{}/my/", service.base_url()))
             .send()
             .await?
             .text()
@@ -99,7 +125,7 @@ impl ClientState {
         let element = document
             .select(&selector)
             .next()
-            .ok_or_else(|| Error::InvalidFormat("failed to find session key in document".to_string()))?;
+            .ok_or_else(|| Error::InvalidRequestError("failed to find session key in document".to_string()))?;
         match element.value().attr("value") {
             Some(value) => Ok(value.to_string()),
             None => Err(Error::InvalidFormat(
@@ -107,30 +133,21 @@ impl ClientState {
             )),
         }
     }
-    pub async fn logout_lms(&self, app: AppHandle) -> Result<String, Error> {
-        let sesskey = match self.fetch_sesskey().await {
+    pub async fn logout_moodle(&self, app: AppHandle, service: &Service) -> Result<String, Error> {
+        let sesskey = match self.fetch_sesskey(service).await {
             Ok(s) => s,
-            Err(Error::InvalidFormat(_)) => return Ok("already logged out".to_string()),
+            Err(Error::InvalidRequestError(_)) => return Ok("already logged out".to_string()),
             Err(e) => return Err(e),
         };
 
-        let url = format!("https://lms.vit.ac.in/login/logout.php?sesskey={}", sesskey);
+        let url = format!("{}/login/logout.php?sesskey={}",service.base_url(), sesskey);
         let response = self
             .client
             .get(url)
             .send()
             .await?;
         if response.text().await?.contains("You are not logged in.") {
-            let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
-            let username = store.get("username").ok_or_else(|| Error::StoreError)?.as_str().unwrap().to_string();
-            let entry = Entry::new("Vertex", &username).unwrap();
-            if let Err(e) = entry.delete_credential() {
-                if !matches!(e, NoEntry) {
-                    return Err(Error::CredentialsError("credentials are not present to be deleted".to_string()));
-                }
-            }
-            store.close_resource();
-            println!("reached the return");
+            delete_credentials(&app)?;
             return Ok("successfully logged out".to_string());
         };
         Err(Error::AuthError(
@@ -138,16 +155,14 @@ impl ClientState {
         ))
     }
 
-    pub async fn lms_return_logininfo(&self, app: AppHandle) -> Result<String, Error> {
-        let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
-        let username = store.get("username").ok_or_else(|| Error::StoreError)?.as_str().unwrap().to_string();
-        let entry = Entry::new("Vertex", &username).unwrap();
-        let password = entry.get_password().map_err(|_| Error::CredentialsError("password not found in credential manager".to_string()))?;
-        let payload = json!({
-            "username": username,
-            "password": password
-        });
-        Ok(payload.to_string())
+    pub async fn relogin(&self, app: AppHandle, service: &Service) -> Result<(), Error> {
+        let payload = get_credentials(&app, service)?;
+        if let Err(e) = self.login_moodle(payload, app, service).await {
+            if !matches!(e, Error::InvalidRequestError(_)) {
+                return Err(e);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -169,7 +184,7 @@ mod tests {
         let client = ClientState {
             client: Arc::new(client),
         };
-        match client.get_logintoken().await {
+        match client.get_logintoken(&Service::LMS).await {
             Ok(token) => {
                 assert!(!token.is_empty(), "Token should not be empty")
             }

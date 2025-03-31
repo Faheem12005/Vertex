@@ -1,32 +1,30 @@
 use tauri::AppHandle;
 use crate::core::assignments_lms::Assignment;
-use crate::core::login::{ClientState, Error};
-use tokio::time::{sleep, Duration};
+use crate::core::login::{get_credentials, ClientState, Error};
+use crate::core::types::Service;
+use crate::core::types;
 #[tauri::command]
-pub async fn login_lms(state: tauri::State<'_, ClientState>, payload: &str, app_handle: AppHandle) -> Result<String, Error> {
-    state.login_lms(payload, app_handle).await
+pub async fn login_lms(state: tauri::State<'_, ClientState>, payload: types::LoginPayload, app_handle: AppHandle) -> Result<String, Error> {
+    state.login_moodle(payload, app_handle, &Service::LMS).await
 }
 
 #[tauri::command]
-pub async fn fetch_assignments(state: tauri::State<'_, ClientState>) -> Result<String, Error> {
-    state.fetch_assignments().await
+pub async fn fetch_assignments(state: tauri::State<'_, ClientState>, app_handle: AppHandle) -> Result<String, Error> {
+    state.fetch_assignments(app_handle, &Service::LMS).await
 }
 
 #[tauri::command]
 pub async fn logout_lms(state: tauri::State<'_, ClientState>, app_handle: AppHandle) -> Result<String, Error> {
-    state.logout_lms(app_handle).await
+    state.logout_moodle(app_handle, &Service::LMS).await
 }
 
 #[tauri::command]
-pub async fn open_assignment_lms(
-    state: tauri::State<'_, ClientState>,
-    id: String,
-) -> Result<Assignment, Error> {
-    state.open_assignment_lms(id).await
+pub async fn open_assignment_lms(state: tauri::State<'_, ClientState>, id: String, app_handle: AppHandle, ) -> Result<Assignment, Error> {
+    state.open_assignment_lms(id, app_handle, &Service::LMS).await
 }
 
 #[tauri::command]
 pub async fn auto_login_lms(state: tauri::State<'_, ClientState>, app_handle: AppHandle) -> Result<String, Error> {
-    let payload = state.lms_return_logininfo(app_handle.clone()).await?;
-    state.login_lms(&payload, app_handle).await
+    let payload = get_credentials(&app_handle, &Service::LMS)?;
+    state.login_moodle(payload, app_handle, &Service::LMS).await
 }

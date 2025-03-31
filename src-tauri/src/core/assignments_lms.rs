@@ -3,6 +3,8 @@ use crate::login::ClientState;
 use serde::{Deserialize, Serialize};
 use tokio::task;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tauri::AppHandle;
+use crate::core::types::Service;
 
 #[derive(Serialize, Deserialize)]
 pub struct Assignment {
@@ -29,9 +31,10 @@ impl Assignment {
 }
 impl ClientState {
     ///function fetches assignments and returns it as a json serializable string
-    pub async fn fetch_assignments(&self) -> Result<String, Error> {
-        let sesskey = self.fetch_sesskey().await?;
-        let url = format!("https://lms.vit.ac.in/lib/ajax/service.php?sesskey={}&info=core_calendar_get_action_events_by_timesort", sesskey);
+    pub async fn fetch_assignments(&self, app: AppHandle, service: &Service) -> Result<String, Error> {
+        self.relogin(app, service).await?;
+        let sesskey = self.fetch_sesskey(service).await?;
+        let url = format!("{}/lib/ajax/service.php?sesskey={}&info=core_calendar_get_action_events_by_timesort",service.base_url(), sesskey);
         let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() - 1209600;
         let request_body = format!(r#"
         [
@@ -54,8 +57,9 @@ impl ClientState {
         Ok(response_text)
     }
 
-    pub async fn open_assignment_lms(&self, id: String) -> Result<Assignment, Error> {
-        let url = format!("https://lms.vit.ac.in/mod/assign/view.php?id={}", id);
+    pub async fn open_assignment_lms(&self, id: String, app: AppHandle, service: &Service) -> Result<Assignment, Error> {
+        self.relogin(app, service).await?;
+        let url = format!("{}/mod/assign/view.php?id={}",service.base_url(), id);
         let request = self.client.get(url);
         let response = request.send().await?;
         let response_text = response.text().await?;
@@ -95,51 +99,3 @@ impl ClientState {
         Ok(assignment)
     }
 }
-
-// #[cfg(test)]
-// mod assignment_tests {
-//     use super::*;
-//     use serde_json::json;
-//     use std::env;
-//     use std::sync::Arc;
-//     use tauri_plugin_http::reqwest;
-//     #[tokio::test]
-//     async fn check_assignments() {
-//         let client = reqwest::Client::builder()
-//             .cookie_store(true)
-//             .build()
-//             .unwrap();
-//
-//         let client = ClientState {
-//             client: Arc::new(client),
-//         };
-//         let result = client.fetch_assignments().await.unwrap_or_else(|e| e);
-//         assert_eq!(result, "no key found in sesskey");
-//     }
-//
-//     #[tokio::test]
-//     async fn check_assignment_lms() {
-//         let username: String = env::var("USERNAME").unwrap();
-//         let password: String = env::var("PASSWORD").unwrap();
-//
-//         let client = reqwest::Client::builder()
-//             .cookie_store(true)
-//             .build()
-//             .unwrap();
-//
-//         let payload = json!({
-//             "username": username,
-//             "password": password,
-//         })
-//         .to_string();
-//
-//         let client = ClientState {
-//             client: Arc::new(client),
-//         };
-//         client.login_lms(&payload).await.unwrap_or_else(|e| e);
-//         assert!(client
-//             .open_assignment_lms("61827".to_string())
-//             .await
-//             .is_ok());
-//     }
-// }

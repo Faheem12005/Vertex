@@ -39,12 +39,12 @@ export default function Login () {
     setLoading(true);
     try {
         console.log("handle submit called");
-      let response: string = await invoke('login_lms', { payload: JSON.stringify({ username: username, password: password }) });
+      let response: string = await invoke('login_lms', { payload: { username: username, password: password } });
       console.log(response);
       localStorage.setItem("username", response);
       setLoggedIn(true);
     } catch (e) {
-        console.log("error occurred while logging in");
+        console.log("error occurred while logging in", e);
         if (typeof e === "object" && e !== null && "kind" in e && "message" in e) {
             const error = e as ErrorKind; // Type assertion
             switch (error.kind) {

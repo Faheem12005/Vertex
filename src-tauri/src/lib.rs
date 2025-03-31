@@ -1,8 +1,9 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod core;
 
+use crate::core::types::Service;
 use crate::core::errors::Error::AuthError;
-use crate::core::login::ClientState;
+use crate::core::login::{get_credentials, ClientState};
 use chrono::{Local, TimeZone};
 use core::errors::Error;
 use core::{cmds, login};
@@ -18,23 +19,14 @@ use tokio::time::{sleep, Duration};
 use tauri_plugin_store::StoreExt;
 use tauri::{
     menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
+    tray::{TrayIconBuilder, TrayIconEvent, MouseButton},
 };
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 
+
 async fn check_lms_assignment(app: &AppHandle) -> Result<(), Error> {
-    let store = app.store("vertex.json").map_err(|_| Error::StoreError)?;
-    println!("retrieved store...");
-    let username = store.get("username").ok_or(Error::StoreError)?;
-    let username_str = username.as_str().unwrap();
-    let entry = Entry::new("Vertex", username_str).unwrap();
-    match entry.get_password() {
-        Ok(password) => {
-            let payload = json!({
-                "username": username,
-                "password": password,
-            })
-            .to_string();
+    match get_credentials(&app, &Service::LMS) {
+        Ok(login_info) => {
             let client = reqwest::Client::builder()
                 .cookie_store(true)
                 .timeout(Duration::from_secs(10))
@@ -42,8 +34,8 @@ async fn check_lms_assignment(app: &AppHandle) -> Result<(), Error> {
             let client = ClientState {
                 client: Arc::new(client),
             };
-            client.login_lms(&payload, app.clone()).await?;
-            let assignments = client.fetch_assignments().await?;
+            client.login_moodle(login_info, app.clone(), &Service::LMS).await?;
+            let assignments = client.fetch_assignments(app.clone(), &Service::LMS).await?;
             let assignments_json: serde_json::Value = serde_json::from_str(&assignments)?;
             let events_array = assignments_json[0]
                 .get("data")
@@ -86,7 +78,9 @@ async fn check_lms_assignment(app: &AppHandle) -> Result<(), Error> {
             });
             Ok(())
         }
-        Err(_) => Err(AuthError("failed to get entry for user".to_string())),
+        Err(_) => {
+            Err(AuthError("failed to get entry for user".to_string()))
+        },
     }
 }
 pub fn run() {
@@ -108,9 +102,15 @@ pub fn run() {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 loop {
-                    sleep(Duration::from_secs(60)).await;
+                    sleep(Duration::from_secs(86400)).await;
                     check_lms_assignment(&handle).await.unwrap_or_else(|error| {
-                        println!("Error checking LMS: {}, retrying...", error);
+                        let _ = &handle.notification()
+                            .builder()
+                            .title("Unable to fetch Assignments")
+                            .body(format!("{}", error))
+                            .icon("vertex30x30.png")
+                            .show()
+                            .unwrap();
                     });
                 }
             });
@@ -119,7 +119,7 @@ pub fn run() {
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let check_lms = MenuItem::with_id(app, "check_lms", "Check LMS", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&quit, &check_lms])?;
-
+            let handle = app.handle().clone();
             let tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
@@ -137,12 +137,30 @@ pub fn run() {
                         let app_handle = handle.clone();
                         tauri::async_runtime::spawn(async move {
                             check_lms_assignment(&app_handle).await.unwrap_or_else(|error| {
-                                println!("Error checking LMS from tray event: {}", error);
+                                let _ = &app_handle.notification()
+                                    .builder()
+                                    .title("Unable to fetch Assignments")
+                                    .body(format!("{}", error))
+                                    .icon("vertex30x30.png")
+                                    .show()
+                                    .unwrap();
                             });
                         });
                     }
                     _ => {
                         println!("menu item {:?} not handled", event.id);
+                    }
+                })
+                .on_tray_icon_event(move |_, event| {
+                    if let TrayIconEvent::Click { button, .. } = event {
+                        if button == MouseButton::Left {
+                            if let Some(window) = &handle.get_window("main") {
+                                window.show().unwrap();
+                                window.set_focus().unwrap();
+                            } else {
+                                eprintln!("Window with label 'main' not found.");
+                            }
+                        }
                     }
                 })
                 .build(app)?;
@@ -156,6 +174,13 @@ pub fn run() {
             cmds::open_assignment_lms,
             cmds::auto_login_lms,
         ])
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
+            _ => {}
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
